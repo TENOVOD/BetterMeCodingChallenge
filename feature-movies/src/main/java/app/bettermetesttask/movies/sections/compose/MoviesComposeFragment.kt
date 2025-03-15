@@ -4,6 +4,9 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,6 +32,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -45,6 +51,8 @@ import app.bettermetesttask.featurecommon.injection.utils.Injectable
 import app.bettermetesttask.featurecommon.injection.viewmodel.SimpleViewModelProviderFactory
 import app.bettermetesttask.movies.sections.MoviesState
 import app.bettermetesttask.movies.sections.MoviesViewModel
+import app.bettermetesttask.movies.sections.compose.movieitem.MovieItemDetails
+import app.bettermetesttask.movies.sections.compose.movieitem.MovieItemRegular
 import coil3.compose.AsyncImage
 import javax.inject.Inject
 import javax.inject.Provider
@@ -88,16 +96,30 @@ private fun MoviesComposeScreen(
     viewLoaded: () -> Unit
 ) {
     viewLoaded()
-    Box(
+
+    var isContentLoaded by remember { mutableStateOf(false) }
+
+    AnimatedBox(
+        isContentLoaded = isContentLoaded,
         modifier = Modifier
             .fillMaxSize()
             .background(Color.White)
     ) {
         when (moviesState) {
-            MoviesState.Initial -> {}
+            MoviesState.Initial -> {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(
+                        color = Color.White
+                    )
+                }
+            }
             is MoviesState.Loaded -> {
                 LazyColumn {
                     items(moviesState.movies) { item ->
+                        if(!isContentLoaded) isContentLoaded=true
                         MovieItem(item, onLikeClicked = {
                             likeMovie(item)
                         })
@@ -119,6 +141,9 @@ private fun MoviesComposeScreen(
 
 @Composable
 fun MovieItem(movie: Movie, onLikeClicked: (Int) -> Unit) {
+
+    var isDetailScreenVisible by remember { mutableStateOf(false) }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -126,40 +151,36 @@ fun MovieItem(movie: Movie, onLikeClicked: (Int) -> Unit) {
         shape = RoundedCornerShape(12.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
     ) {
-        Row(
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .animateContentSize(
+                    animationSpec = tween(durationMillis = 300, easing = LinearEasing)
+                )
         ) {
-            AsyncImage(
-                model = movie.posterPath,
-                contentDescription = "Movie Poster",
-                modifier = Modifier
-                    .size(60.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(Color.Gray)
-            )
-
-            Spacer(modifier = Modifier.width(16.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(text = movie.title, fontSize = 18.sp, color = Color.Black)
-                Text(text = movie.description, fontSize = 14.sp, color = Color.Gray)
-            }
-
-            Spacer(modifier = Modifier.width(16.dp))
-
-            IconButton(onClick = { onLikeClicked(movie.id) }) {
-                Icon(
-                    imageVector = if (movie.liked) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                    contentDescription = "Like Button",
-                    tint = if (movie.liked) Color.Red else Color.Gray
+            when(isDetailScreenVisible){
+                true->MovieItemDetails(
+                    isActive = isDetailScreenVisible,
+                    movie = movie,
+                    onLikeClicked = onLikeClicked,
+                    onOpenDetails = {
+                        isDetailScreenVisible = !isDetailScreenVisible
+                    }
+                )
+                false->MovieItemRegular(
+                    isActive = !isDetailScreenVisible,
+                    movie = movie,
+                    onLikeClicked = onLikeClicked,
+                    onOpenDetails = {
+                        isDetailScreenVisible = !isDetailScreenVisible
+                    }
                 )
             }
         }
+
     }
 }
+
 
 @Composable
 @Preview(showBackground = true, backgroundColor = 0xFFFFFFFF)
